@@ -27,8 +27,7 @@ shared_ptr<Token> SymbolTable::lookupToken(string text)
 {
     if (symMap.count(text) < 1)
     {
-        shared_ptr<Token> t1(new Token(ERROR, text));
-        return t1;
+        return nullptr;
     }
     else
     {

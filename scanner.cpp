@@ -2,107 +2,56 @@
 
 shared_ptr<Token> Scanner::nextToken()
 {
-    nextChar();
-
-    if (isdigit(ch))
-    {
-        string checkIfGoodNum = "";
-        checkIfGoodNum = ch;
-        nextChar();
-        while (isdigit(ch) || ch == '.' || ch == 'E' || ch == 'e')
-        {
-            checkIfGoodNum.push_back(ch);
-        }
-        regex a("[0-9]");
-        regex b("[1-9][0-9]*");
-        regex c("[0-9]+[Ee][+-]?[0-9]+");
-        regex d("[0-9]*\\.[0-9]+([Ee][+-]?[0-9]+)?");
-        regex e("[0-9]+\\.[0-9]*([Ee][+-]?[0-9]+)?");
-        if ((regex_match(checkIfGoodNum, a)) || (regex_match(checkIfGoodNum, b)) || (regex_match(checkIfGoodNum, c)) || (regex_match(checkIfGoodNum, d)) || (regex_match(checkIfGoodNum, e)))
-        {
-            return shared_ptr<Token>(new Token(CONSTANT, checkIfGoodNum));
-        }
-        else
-        {
-            return shared_ptr<Token>(new Token(ERROR, checkIfGoodNum));
-        }
-    }
-
-    if (isalpha(ch) || ch == '_')
-    {
-        string checkIfGoodWord;
-        checkIfGoodWord += ch;
-
-        while (nextChar() && (isalpha(ch) || isdigit(ch) || ch == '_'))
-        {
-            checkIfGoodWord += ch;
-        }
-        if (!inputFile.eof())
-            inputFile.unget();
-
-        shared_ptr<Token> t = symTab.lookupToken(checkIfGoodWord);
-        if (t->getType() != ERROR)
-        {
-            if (t->getType() == IDENTIFIER)
-            {
-                t->add_line(lineno);
-            }
-            else
-            {
-                shared_ptr<Token> t1(new Token(t->getType(), t->getText()));
-                return t1;
-            }
-        }
-        else
-        {
-            shared_ptr<Token> t1(new Token(IDENTIFIER, checkIfGoodWord));
-            t1->add_line(lineno);
-            return t1;
-        }
-    }
+    if (!nextChar())
+        return nullptr;
 
     switch (ch)
     {
+    case '\n':
+    case '\r':
     case ' ':
     {
-        while (ch == ' ')
-        {
-            nextChar();
-        }
-        inputFile.unget();
-        nextToken();
+        return nextToken();
         break;
     }
 
     case '/':
-        nextChar();
+    {
+        if (!nextChar())
+            return nullptr;
+
         if (ch == '/')
         {
-            while (ch != '\n')
+            while (nextChar() && ch != '\n')
             {
-                nextChar();
+                //skip the comments.
             }
+            if (!inputFile.eof() && ch != '\n')
+                inputFile.unget();
         }
         else if (ch == '*')
         {
-            nextChar();
-            while (ch != '*')
+            char p = 0;
+            while (nextChar())
             {
-                nextChar();
-            }
-            if (ch == '/')
-            {
-                nextChar();
+                if (ch == '/' && p == '*')
+                    break;
+                p = ch;
             }
         }
-        else
-        {
-            inputFile.unget();
-            return shared_ptr<Token>(new Token(static_cast<tokenType>(ch), string(1, ch)));
-        }
-
+        return nextToken();
         break;
-
+    }
+    case '-':
+    {
+        nextChar();
+        if (ch == '>')
+        {
+            return shared_ptr<Token>(new Token(PTR_OP, "->"));
+        }
+        return nextToken();
+        break;
+    }
     case ';':
     case '{':
     case '}':
@@ -117,22 +66,25 @@ shared_ptr<Token> Scanner::nextToken()
     case '%':
     case '^':
     case '?':
+    case '=':
+    case '&':
+
         return shared_ptr<Token>(new Token(static_cast<tokenType>(ch), string(1, ch)));
         break;
 
     case '\'':
+
     {
-        nextChar();
-        char c = ch;
-        nextChar();
-        if (ch == '\'')
+        string strFromChar;
+        if (nextChar())
+            strFromChar = string(1, ch);
+
+        if (nextChar() && ch != '\'')
         {
-            shared_ptr<Token> t1(new Token(CHAR, string(1, ch)));
+            inputFile.unget();
+            return shared_ptr<Token>(new Token(ERROR, strFromChar));
         }
-        else
-        {
-            throw "Error";
-        }
+        return shared_ptr<Token>(new Token(CONSTANT, strFromChar));
         break;
     }
 
@@ -146,12 +98,80 @@ shared_ptr<Token> Scanner::nextToken()
             nextChar();
             str.push_back(ch);
         }
-        shared_ptr<Token> t1(new Token(CHAR, str));
+        str.pop_back();
+        shared_ptr<Token> t1(new Token(STRING_LITERAL, str));
         return t1;
 
         break;
     }
     default:
+        if (isdigit(ch) || ch == '.')
+        {
+            string checkIfGoodNum = string(1, ch);
+            if (ch == '.')
+            {
+                nextChar();
+                if (isalpha(ch))
+                {
+                    inputFile.unget();
+                    return shared_ptr<Token>(new Token(static_cast<tokenType>('.'), string(1, '.')));
+                }
+                inputFile.unget();
+            }
+
+            while (nextChar() &&
+                   (isdigit(ch) || ch == '.' || ch == 'E' || ch == 'e' || ch == '+' || ch == '-'))
+            {
+                checkIfGoodNum += ch;
+            }
+
+            inputFile.unget();
+
+            regex aa("[0-9]");
+            regex a("[1-9][0-9]*");
+            regex b("[0-9]+[Ee][+-]?[0-9]+");
+            regex c("[0-9]*[.][0-9]+([Ee][+-]?[0-9]+)?");
+            regex d("[0-9]+[.][0-9]*([Ee][+-]?[0-9]+)?");
+
+            if ((regex_match(checkIfGoodNum, a)) || (regex_match(checkIfGoodNum, b)) || (regex_match(checkIfGoodNum, c)) || (regex_match(checkIfGoodNum, d)) || (regex_match(checkIfGoodNum, aa)))
+            {
+                return shared_ptr<Token>(new Token(CONSTANT, checkIfGoodNum));
+            }
+            else
+            {
+                return shared_ptr<Token>(new Token(ERROR, checkIfGoodNum));
+            }
+        }
+
+        else if (isalpha(ch))
+        {
+            string checkIfGoodWord = string(1, ch);
+            while (nextChar() &&
+                   (isalpha(ch) || isdigit(ch) || ch == '_'))
+            {
+                checkIfGoodWord += ch;
+            }
+            if (!inputFile.eof())
+                inputFile.unget();
+            shared_ptr<Token> t = symTab.lookupToken(checkIfGoodWord);
+            if (t != nullptr)
+            {
+                if (t->getType() == IDENTIFIER)
+                    t->add_line(lineno);
+                return t;
+            }
+            else
+            {
+                shared_ptr<varToken> t1(new varToken(checkIfGoodWord));
+                t1->add_line(lineno);
+                symTab.insertToken(checkIfGoodWord, t1);
+                return t1;
+            }
+        }
+        else
+        {
+            return nextToken();
+        }
         break;
     }
 }
