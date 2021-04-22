@@ -1,5 +1,6 @@
 #include "token.h"
 #include <iostream>
+#include "tokenstrings.h"
 
 using namespace std;
 
@@ -15,7 +16,14 @@ string Token::getText()
 
 void Token::printToken()
 {
-    cout << type << "\t" << text << endl;
+    if (getType() >= 258)
+    {
+        cout << tokenStrings[getType() - 258] << "\t" << getText() << endl;
+    }
+    else
+    {
+        cout << getText() << "\t" << getText() << endl;
+    }
 }
 
 void varToken::add_line(int l)

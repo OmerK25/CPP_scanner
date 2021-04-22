@@ -2,42 +2,39 @@
 
 void SymbolTable::initReserved()
 {
-
-    string line;
-
     ifstream inFile;
     inFile.open("reserved.txt");
-    string name;
-    int num;
-    while (getline(inFile, line))
+    string word;
+    if (!inFile)
+        cerr << "Unable to open file reserved.txt";
+    string text;
+    while (inFile >> word)
     {
-        int i = 0;
-        while (line.at(i) != ' ')
+        if (isalpha(word.at(0)))
         {
-            name += line.at(i);
-            i++;
+            text = word;
         }
-        while (line.at(i) == ' ')
+        else
         {
-            i++;
+            tokenType tt = static_cast<tokenType>(stoi(word));
+            insertToken(text, shared_ptr<Token>(new Token(tt, text)));
         }
-        while (i < line.size())
-        {
-            num += line.at(i);
-            i++;
-        }
-
-        shared_ptr<Token> tok(new Token(static_cast<tokenType>(num), name));
-        insertToken(name, tok);
     }
+    inFile.close();
 }
 
 shared_ptr<Token> SymbolTable::lookupToken(string text)
 {
     if (symMap.count(text) < 1)
     {
-        shared_ptr<Token> t1(new Token(IDENTIFIER, text));
-        insertToken(text, t1);
+        shared_ptr<Token> t1(new Token(ERROR, text));
+        return t1;
+    }
+    else
+    {
+        map<string, shared_ptr<Token>>::iterator it;
+        it = symMap.find(text);
+        return it->second;
     }
 }
 
